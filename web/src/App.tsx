@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link, NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
-import { buildSidebarGroups, extractHeadings, headingToId, loadDocs } from './content';
+import { buildSidebarGroups, extractHeadings, headingToId, loadDocs, resolveCourseAssetUrl } from './content';
 import type { CourseDoc } from './types';
 
 type ThemeName = 'dark-academia' | 'kindle' | 'google-books';
@@ -351,6 +351,25 @@ function Reader({ docs }: { docs: CourseDoc[] }) {
     h3: ({ children }) => {
       const text = String(children);
       return <h3 id={headingToId(text)}>{children}</h3>;
+    },
+    img: ({ src, alt, title }) => {
+      const rawSrc = typeof src === 'string' ? src : '';
+      const isExternal = /^(https?:)?\/\//i.test(rawSrc) || rawSrc.startsWith('data:');
+
+      let resolvedSrc = rawSrc;
+      if (!isExternal) {
+        if (rawSrc.startsWith('/')) {
+          resolvedSrc = resolveCourseAssetUrl(rawSrc) ?? rawSrc;
+        } else {
+          const sourceDir = doc.sourcePath.includes('/')
+            ? doc.sourcePath.slice(0, doc.sourcePath.lastIndexOf('/'))
+            : '';
+          const absoluteLikePath = sourceDir ? `/${sourceDir}/${rawSrc}` : `/${rawSrc}`;
+          resolvedSrc = resolveCourseAssetUrl(absoluteLikePath) ?? resolveCourseAssetUrl(rawSrc) ?? rawSrc;
+        }
+      }
+
+      return <img src={resolvedSrc} alt={alt ?? ''} title={title} loading="lazy" />;
     },
   };
 

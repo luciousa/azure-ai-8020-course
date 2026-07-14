@@ -9,6 +9,24 @@ const markdownModules = import.meta.glob(
   { query: '?raw', import: 'default' }
 ) as Record<string, () => Promise<string>>;
 
+const imageModules = import.meta.glob(
+  [
+    '../../week-0[1-8]/images/**/*.{png,jpg,jpeg,webp,gif,svg}',
+    '../../week-0[1-8]/image/**/*.{png,jpg,jpeg,webp,gif,svg}',
+  ],
+  {
+    eager: true,
+    import: 'default',
+  }
+) as Record<string, string>;
+
+const imageUrlByPath = new Map<string, string>();
+for (const [modulePath, assetUrl] of Object.entries(imageModules)) {
+  const relativePath = modulePath.replace('../../', '').replace(/\\/g, '/');
+  imageUrlByPath.set(relativePath, assetUrl);
+  imageUrlByPath.set(`/${relativePath}`, assetUrl);
+}
+
 const rootPriority: Record<string, number> = {
   '../../README.md': 0,
   '../../course-overview.md': 1,
@@ -76,6 +94,27 @@ export function extractHeadings(markdown: string): Array<{ level: 2 | 3; text: s
   return headings;
 }
 
+export function resolveCourseAssetUrl(path: string): string | null {
+  const normalizedPath = path.replace(/\\/g, '/');
+  const hasLeadingSlash = normalizedPath.startsWith('/');
+  const segments = normalizedPath.split('/');
+  const normalizedSegments: string[] = [];
+
+  for (const segment of segments) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      normalizedSegments.pop();
+      continue;
+    }
+    normalizedSegments.push(segment);
+  }
+
+  const normalized = `${hasLeadingSlash ? '/' : ''}${normalizedSegments.join('/')}`;
+  if (imageUrlByPath.has(normalized)) return imageUrlByPath.get(normalized) ?? null;
+  const withoutLeadingSlash = normalized.replace(/^\//, '');
+  return imageUrlByPath.get(withoutLeadingSlash) ?? null;
+}
+
 export async function loadDocs(): Promise<CourseDoc[]> {
   const entries = Object.entries(markdownModules);
   const loaded = await Promise.all(
@@ -106,6 +145,7 @@ export async function loadDocs(): Promise<CourseDoc[]> {
     if (aIsRoot && bIsRoot) {
       return (rootPriority[`../../${a.sourcePath}`] ?? 99) - (rootPriority[`../../${b.sourcePath}`] ?? 99);
     }
+
     if (aIsRoot !== bIsRoot) return aIsRoot ? -1 : 1;
     if (a.week !== b.week) return (a.week ?? 99) - (b.week ?? 99);
     if (kindRank(a.kind) !== kindRank(b.kind)) return kindRank(a.kind) - kindRank(b.kind);

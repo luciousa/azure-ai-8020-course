@@ -1,7 +1,7 @@
 # Module 01 — Course Orientation and the 80/20 Roadmap
 
-**Week:** 1 of 8  
-**Estimated time:** ~2 hours (reading + architecture review) + lab  
+**Week:** 1 of 8
+**Estimated time:** ~2 hours (reading + architecture review) + lab
 **Lab:** `lab-01a-environment-setup.md`
 
 ## Learning Objectives
@@ -25,20 +25,20 @@ The answer is a focused stack of five to seven Azure services, a small number of
 
 **What is out of scope (and why):**
 
-| Out of Scope | Reason |
-|---|---|
-| Azure Computer Vision, Speech, Form Recognizer | The district assistant is text-only analytics |
-| Azure Machine Learning training pipelines | No custom model training in the POC; use pre-trained models via Azure OpenAI |
-| Power BI integration | The district uses its own web reporting application |
-| Generic customer-service bot patterns | District analytics requires role-aware data access, not FAQ lookup |
-| Azure Synapse, Fabric, Databricks | SQL Server is the system of record; no data migration in scope |
-| AI model fine-tuning | RAG over approved data is the correct first approach; fine-tuning adds complexity and cost |
-| Broad ML theory | Not needed to evaluate, build, or govern the district assistant |
+| Out of Scope                                   | Reason                                                                                     |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Azure Computer Vision, Speech, Form Recognizer | The district assistant is text-only analytics                                              |
+| Azure Machine Learning training pipelines      | No custom model training in the POC; use pre-trained models via Azure OpenAI               |
+| Power BI integration                           | The district uses its own web reporting application                                        |
+| Generic customer-service bot patterns          | District analytics requires role-aware data access, not FAQ lookup                         |
+| Azure Synapse, Fabric, Databricks              | SQL Server is the system of record; no data migration in scope                             |
+| AI model fine-tuning                           | RAG over approved data is the correct first approach; fine-tuning adds complexity and cost |
+| Broad ML theory                                | Not needed to evaluate, build, or govern the district assistant                            |
 
 **What is in scope:**
 
 The in-scope services and concepts are listed in Section 3 of this module. Every one of them has a direct, concrete role in the district analytics assistant architecture.
- 
+
 ## 2. The Target Use Case (One Sentence)
 
 > A secure, role-aware chat assistant embedded in the district's existing web reporting application that answers natural-language analytics questions from teachers, school administrators, and district administrators using approved queries against the district's in-house SQL Server data warehouse, with grounded answers, citations, and audit trails.
@@ -49,21 +49,22 @@ Every architecture decision in this course is tested against this sentence. If a
 
 The following table maps the district assistant's functional requirements to the minimum Azure AI capabilities needed to satisfy them. Learning these deeply is more valuable than knowing everything shallowly.
 
-| District Requirement | Primary Azure Capability | Secondary |
-|---|---|---|
-| Natural-language question answering | Azure OpenAI (GPT-4o or GPT-4o-mini) | — |
-| Grounding answers in approved district metadata | Azure AI Search (vector + hybrid retrieval) | — |
-| Embedding generation for semantic retrieval | Azure OpenAI Embeddings (text-embedding-3-small) | — |
-| Safe, auditable data access | SQL Server approved views + stored procedures | Azure SQL row-level security patterns |
-| Prompt and response content safety | Azure AI Content Safety | Azure OpenAI built-in filters |
-| Authentication for all service calls | Microsoft Entra ID + Managed Identities | Azure Key Vault |
-| Secret management | Azure Key Vault | — |
-| Backend API orchestration | .NET 8 minimal API (Azure.AI.OpenAI SDK) | Python prototyping |
-| Monitoring, logging, and audit | Azure Monitor + Application Insights | Structured logging in .NET |
-| Private networking (production path) | Private Endpoints / VPN concepts | — |
-| Responsible AI governance | Azure AI Foundry Responsible AI tools | Manual evaluation test sets |
+| District Requirement                            | Primary Azure Capability                         | Secondary                             |
+| ----------------------------------------------- | ------------------------------------------------ | ------------------------------------- |
+| Natural-language question answering             | Azure OpenAI (GPT-4o or GPT-4o-mini)             | —                                    |
+| Grounding answers in approved district metadata | Azure AI Search (vector + hybrid retrieval)      | —                                    |
+| Embedding generation for semantic retrieval     | Azure OpenAI Embeddings (text-embedding-3-small) | —                                    |
+| Safe, auditable data access                     | SQL Server approved views + stored procedures    | Azure SQL row-level security patterns |
+| Prompt and response content safety              | Azure AI Content Safety                          | Azure OpenAI built-in filters         |
+| Authentication for all service calls            | Microsoft Entra ID + Managed Identities          | Azure Key Vault                       |
+| Secret management                               | Azure Key Vault                                  | —                                    |
+| Backend API orchestration                       | .NET 8 minimal API (Azure.AI.OpenAI SDK)         | Python prototyping                    |
+| Monitoring, logging, and audit                  | Azure Monitor + Application Insights             | Structured logging in .NET            |
+| Private networking (production path)            | Private Endpoints / VPN concepts                 | —                                    |
+| Responsible AI governance                       | Azure AI Foundry Responsible AI tools            | Manual evaluation test sets           |
 
 **The 20% you do NOT need to build a district analytics POC:**
+
 - Custom embedding model training
 - Custom model fine-tuning
 - Azure Machine Learning pipelines
@@ -80,6 +81,7 @@ Every key decision in this course — which service to use, which integration pa
 The district's student data lives in an on-premises (or internally hosted) SQL Server. It does not migrate to Azure during the POC.
 
 **Implications:**
+
 - Azure AI services call back to district SQL Server through a secure API layer — they do not hold district data natively (except for temporary context in prompt windows)
 - The AI pipeline is in Azure; the data warehouse is on-premises
 - Private networking, service identities, and approved data access patterns are not optional extras — they are the architecture
@@ -89,6 +91,7 @@ The district's student data lives in an on-premises (or internally hosted) SQL S
 FERPA (Family Educational Rights and Privacy Act) applies when AI systems access student education records. This is not a legal discussion — it is a technical design requirement.
 
 **Implications for the AI pipeline:**
+
 - Student education records may not be sent to Azure OpenAI without appropriate controls and agreements in place
 - The least-privilege principle applies to every component that touches student data
 - Prompts and retrieved data that contain student records must be logged, controlled, and not retained beyond operational need
@@ -102,6 +105,7 @@ FERPA (Family Educational Rights and Privacy Act) applies when AI systems access
 The district already has a .NET-based web reporting application. The AI assistant is embedded in that application — it is not a separate product.
 
 **Implications:**
+
 - .NET is the primary implementation language for the orchestration API
 - Python is used for prototyping, evaluation, and data preparation scripts
 - The architecture must support adding an AI chat endpoint to an existing .NET web application without a full rewrite
@@ -128,87 +132,34 @@ The following describes the target architecture for the district analytics assis
 
 ### Architecture Description
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  DISTRICT NETWORK (on-premises or district-hosted)                      │
-│                                                                         │
-│  ┌─────────────────────────┐   ┌──────────────────────────────────────┐│
-│  │  SQL Server DW          │   │  .NET Web Reporting Application      ││
-│  │  (System of Record)     │   │  (existing application)              ││
-│  │                         │   │                                      ││
-│  │  Approved Views         │   │  AI Chat Endpoint (new, embedded)    ││
-│  │  Stored Procedures      │   │  ↕ REST API                         ││
-│  │  Row-Level Security     │◄──│  Entra ID auth (user context)        ││
-│  │  Read-Only Svc Account  │   │                                      ││
-│  └─────────────────────────┘   └────────────────┬─────────────────────┘│
-│                                                  │ HTTPS (authenticated) │
-└─────────────────────────────────────────────────|───────────────────────┘
-                                                   │
-                                        [Private Endpoint / VPN]
-                                        (production path; open HTTPS in POC)
-                                                   │
-┌──────────────────────────────────────────────────▼──────────────────────┐
-│  AZURE (district tenant)                                                 │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │  AI Orchestration Layer (.NET API or Azure App Service)            │ │
-│  │                                                                    │ │
-│  │  1. Authenticate user via Entra ID                                 │ │
-│  │  2. Resolve role and data scope                                    │ │
-│  │  3. Retrieve relevant metadata from AI Search                      │ │
-│  │  4. Select approved SQL view based on question + metadata          │ │
-│  │  5. Execute approved view via SQL Server data service              │ │
-│  │  6. Build grounded prompt with retrieved data + metadata           │ │
-│  │  7. Call Azure OpenAI for answer generation                        │ │
-│  │  8. Return grounded, cited answer with role-appropriate scope      │ │
-│  │  9. Log everything to Application Insights + audit log             │ │
-│  └──────┬──────────────────┬───────────────────────────┬─────────────┘ │
-│         │                  │                           │                 │
-│  ┌──────▼──────┐  ┌────────▼────────┐     ┌──────────▼──────────────┐ │
-│  │ Azure       │  │ Azure AI Search  │     │ Azure AI Content Safety │ │
-│  │ OpenAI      │  │                  │     │ (prompt + response      │ │
-│  │ (GPT-4o     │  │ Metadata Index:  │     │  content filtering)     │ │
-│  │  +          │  │ - Business defs  │     └─────────────────────────┘ │
-│  │  Embeddings)│  │ - View catalog   │                                  │
-│  └─────────────┘  │ - Data dict      │     ┌─────────────────────────┐ │
-│                   │ - Approved views │     │ Key Vault               │ │
-│  ┌─────────────┐  └──────────────────┘     │ (secrets + connection   │ │
-│  │ Azure       │                           │  strings)               │ │
-│  │ Monitor +   │  ┌──────────────────┐     └─────────────────────────┘ │
-│  │ App Insights│  │ Managed Identity │                                  │
-│  │ (audit +    │  │ (service auth,   │     ┌─────────────────────────┐ │
-│  │  telemetry) │  │  no passwords)   │     │ Entra ID                │ │
-│  └─────────────┘  └──────────────────┘     │ (user + service auth)   │ │
-│                                            └─────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+![Architecture description](./images/architecture-description.png)
 
 ### Tracing One Question End-to-End
 
 **User:** A school principal sends the question: *"Which grade levels at my school are below expected performance in reading this semester?"*
 
-**Step 1 — Authentication:**  
+**Step 1 — Authentication:**
 The web application passes the user's Entra ID token to the AI chat endpoint. The orchestration layer resolves the user's role (school_admin) and their school assignment (School ID: 042 — Palmetto Ridge High).
 
-**Step 2 — Metadata Retrieval (AI Search):**  
+**Step 2 — Metadata Retrieval (AI Search):**
 The orchestration layer embeds the question and queries the Azure AI Search metadata index. It retrieves: the business definition for "expected performance in reading" (tied to a district benchmark formula), the approved view `vw_ReadingPerformanceByGradeAndSchool`, and a note that this view filters by school when role = school_admin.
 
-**Step 3 — Data Access (Approved View):**  
+**Step 3 — Data Access (Approved View):**
 The orchestration layer calls the approved SQL view with parameterized inputs: `@SchoolID = 042`, `@RoleScope = 'school_admin'`, `@Semester = 'S1-2025-26'`. The read-only service account executes this against the DW. The view's row-level security ensures only School 042 data is returned. Result: a table of grade levels with actual vs. expected reading proficiency rates.
 
-**Step 4 — Prompt Construction:**  
+**Step 4 — Prompt Construction:**
 The orchestration layer builds a grounded prompt that includes the question, the user's role and school context, the retrieved metadata definitions, and the query result data.
 
-**Step 5 — Answer Generation (Azure OpenAI):**  
+**Step 5 — Answer Generation (Azure OpenAI):**
 Azure OpenAI generates an answer that: (a) reports the specific grade levels below benchmark, (b) cites `vw_ReadingPerformanceByGradeAndSchool` and the semester as sources, (c) notes the benchmark definition used, (d) flags any data quality issues in the retrieved data, and (e) classifies the answer as descriptive + diagnostic rather than prescriptive.
 
-**Step 6 — Safety Check:**  
+**Step 6 — Safety Check:**
 Azure AI Content Safety reviews the response before it is returned.
 
-**Step 7 — Logging:**  
+**Step 7 — Logging:**
 The prompt, retrieved data hash, response, user role, school scope, token counts, and latency are written to the structured audit log in Application Insights.
 
-**Step 8 — Response:**  
+**Step 8 — Response:**
 The web application displays the grounded, cited answer to the school principal with source attribution.
 
 ## 6. Course Lab Environment
@@ -226,44 +177,44 @@ The hands-on labs throughout this course use:
 
 The course labs make intentional simplifications relative to a production deployment:
 
-| Production Requirement | POC Lab Approach | Week Full Pattern Is Taught |
-|---|---|---|
-| Private endpoints for all Azure services | Open public endpoints (dev sandbox only) | Week 8 |
-| Managed Identity for all auth | API key in Key Vault for some labs | Week 5 |
-| Production SQL Server on-premises | Local SQL Server Express or Azure SQL | Week 1 |
-| District Entra ID tenant | Simulated role injection in headers | Week 6 |
-| Content Safety on every request | Selective lab testing | Week 7 |
-| Full audit logging pipeline | Basic Application Insights logging | Week 8 |
+| Production Requirement                   | POC Lab Approach                         | Week Full Pattern Is Taught |
+| ---------------------------------------- | ---------------------------------------- | --------------------------- |
+| Private endpoints for all Azure services | Open public endpoints (dev sandbox only) | Week 8                      |
+| Managed Identity for all auth            | API key in Key Vault for some labs       | Week 5                      |
+| Production SQL Server on-premises        | Local SQL Server Express or Azure SQL    | Week 1                      |
+| District Entra ID tenant                 | Simulated role injection in headers      | Week 6                      |
+| Content Safety on every request          | Selective lab testing                    | Week 7                      |
+| Full audit logging pipeline              | Basic Application Insights logging       | Week 8                      |
 
 > These simplifications exist to reduce environment friction in the lab setting. Each module explicitly identifies the POC simplification and the production requirement it replaces. **Never apply POC-only patterns to production.**
 
 ## 7. Key Concepts Summary
 
-| Concept | What It Means in This Course |
-|---|---|
-| **80/20 principle** | Focus on the smallest set of Azure AI capabilities that delivers the POC; defer everything else |
-| **Grounded answer** | An answer that is derived from retrieved approved data, not from the model's internal training weights |
-| **Approved view catalog** | A curated set of pre-built SQL views that the AI can select from; the AI never writes raw SQL in production |
-| **Metadata index** | An Azure AI Search index containing business definitions, data dictionary entries, and view catalog metadata — the AI's "knowledge of the data" |
-| **RAG** | Retrieval-Augmented Generation — retrieve relevant context first, then generate the answer using that context |
-| **Role scope** | The data scope the user's role entitles them to — teacher (own students), school admin (own school), district admin (all schools) |
-| **Citation requirement** | Every factual answer must identify the source SQL view, time period, and any relevant definitions used |
-| **FERPA boundary** | The design rule that prevents student education records from being exposed through AI responses to unauthorized users |
-| **POC vs. production** | The POC proves the concept and evaluates feasibility; production requires full governance, approval gates, and security hardening |
+| Concept                         | What It Means in This Course                                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **80/20 principle**       | Focus on the smallest set of Azure AI capabilities that delivers the POC; defer everything else                                                  |
+| **Grounded answer**       | An answer that is derived from retrieved approved data, not from the model's internal training weights                                           |
+| **Approved view catalog** | A curated set of pre-built SQL views that the AI can select from; the AI never writes raw SQL in production                                      |
+| **Metadata index**        | An Azure AI Search index containing business definitions, data dictionary entries, and view catalog metadata — the AI's "knowledge of the data" |
+| **RAG**                   | Retrieval-Augmented Generation — retrieve relevant context first, then generate the answer using that context                                   |
+| **Role scope**            | The data scope the user's role entitles them to — teacher (own students), school admin (own school), district admin (all schools)               |
+| **Citation requirement**  | Every factual answer must identify the source SQL view, time period, and any relevant definitions used                                           |
+| **FERPA boundary**        | The design rule that prevents student education records from being exposed through AI responses to unauthorized users                            |
+| **POC vs. production**    | The POC proves the concept and evaluates feasibility; production requires full governance, approval gates, and security hardening                |
 
 ## 8. Architecture Decision: Why RAG Over Fine-Tuning
 
 One of the most common questions teams ask when starting an AI analytics project is whether to fine-tune a model on district data or use RAG. This is a critical early decision.
 
-| Dimension | Fine-Tuning | RAG (This Course) |
-|---|---|---|
-| Data currency | Stale — model must be retrained when data changes | Live — retrieval pulls current approved data at query time |
-| Cost | High — retraining is expensive and ongoing | Lower — retrieval + generation per query |
-| Privacy risk | High — student data baked into model weights | Controlled — data accessed only via approved views at query time |
-| Answer grounding | Cannot cite sources reliably | Can cite exact source views, periods, and definitions |
-| Control | Difficult to update or audit | Catalog and views are fully controlled by district technical staff |
-| Time to POC | Months | Weeks |
-| FERPA implications | Very complex — weights may memorize PII | Manageable with approved view access controls |
+| Dimension          | Fine-Tuning                                        | RAG (This Course)                                                  |
+| ------------------ | -------------------------------------------------- | ------------------------------------------------------------------ |
+| Data currency      | Stale — model must be retrained when data changes | Live — retrieval pulls current approved data at query time        |
+| Cost               | High — retraining is expensive and ongoing        | Lower — retrieval + generation per query                          |
+| Privacy risk       | High — student data baked into model weights      | Controlled — data accessed only via approved views at query time  |
+| Answer grounding   | Cannot cite sources reliably                       | Can cite exact source views, periods, and definitions              |
+| Control            | Difficult to update or audit                       | Catalog and views are fully controlled by district technical staff |
+| Time to POC        | Months                                             | Weeks                                                              |
+| FERPA implications | Very complex — weights may memorize PII           | Manageable with approved view access controls                      |
 
 **Decision: RAG with approved views and metadata retrieval is the correct architecture for this use case.** Fine-tuning is out of scope for the course and is not recommended for the POC or initial production deployment.
 
@@ -271,15 +222,15 @@ One of the most common questions teams ask when starting an AI analytics project
 
 The second critical early decision: allow the AI to write SQL, or restrict it to a catalog of approved queries?
 
-| Dimension | AI-Generated SQL | Approved Views (This Course) |
-|---|---|---|
-| Security | High risk — prompt injection can exfiltrate data | Controlled — fixed query surfaces only |
-| Auditability | Hard to audit unknown queries | Every view is known, reviewed, and logged |
-| Row-level security | May be bypassed through creative SQL | Enforced within the view definition |
-| FERPA compliance | Extremely difficult to ensure | Manageable with view-level controls |
-| Performance | Unpredictable | Views can be optimized and indexed |
-| Correctness | High hallucination risk on schema details | Views encode correct business logic |
-| Maintenance | Uncontrolled surface area | Explicit change management |
+| Dimension          | AI-Generated SQL                                  | Approved Views (This Course)              |
+| ------------------ | ------------------------------------------------- | ----------------------------------------- |
+| Security           | High risk — prompt injection can exfiltrate data | Controlled — fixed query surfaces only   |
+| Auditability       | Hard to audit unknown queries                     | Every view is known, reviewed, and logged |
+| Row-level security | May be bypassed through creative SQL              | Enforced within the view definition       |
+| FERPA compliance   | Extremely difficult to ensure                     | Manageable with view-level controls       |
+| Performance        | Unpredictable                                     | Views can be optimized and indexed        |
+| Correctness        | High hallucination risk on schema details         | Views encode correct business logic       |
+| Maintenance        | Uncontrolled surface area                         | Explicit change management                |
 
 **Decision: The AI selects from a catalog of approved views; it does not generate SQL in production.** AI-generated SQL is explored in a controlled lab environment on synthetic data only.
 
@@ -298,17 +249,17 @@ Before diving into Azure services, internalize this priority order for every dec
 
 ### The Component You Build Each Week
 
-| Week | Component Added |
-|------|----------------|
-| 1 | Environment setup; conceptual architecture |
-| 2 | Azure OpenAI call + prompt engineering |
-| 3 | Azure AI Search retrieval + basic RAG pipeline |
-| 4 | Approved SQL views + metadata catalog |
-| 5 | .NET orchestration API + Python prototype |
-| 6 | Role-aware scoping + analytics scenarios |
-| 7 | Privacy review + evaluation test set |
-| 8 | Monitoring + production checklist |
-| Capstone | Full integrated prototype |
+| Week     | Component Added                                |
+| -------- | ---------------------------------------------- |
+| 1        | Environment setup; conceptual architecture     |
+| 2        | Azure OpenAI call + prompt engineering         |
+| 3        | Azure AI Search retrieval + basic RAG pipeline |
+| 4        | Approved SQL views + metadata catalog          |
+| 5        | .NET orchestration API + Python prototype      |
+| 6        | Role-aware scoping + analytics scenarios       |
+| 7        | Privacy review + evaluation test set           |
+| 8        | Monitoring + production checklist              |
+| Capstone | Full integrated prototype                      |
 
 Each week's lab connects to the weeks before it. By Week 5, you have a working end-to-end prototype. Weeks 6–8 harden, evaluate, and plan it for production consideration.
 
@@ -361,6 +312,7 @@ The course labs provide complete, runnable .NET 10 code samples. Adapt them to t
 ## 12. Python Notes
 
 Python is used in this course for:
+
 - Rapid prototyping of RAG pipelines (Week 5)
 - Evaluation scripts (Week 7)
 - Data preparation and synthetic data generation (supporting role)
@@ -403,15 +355,15 @@ Completion check: You should be able to run `dotnet run` on a minimal test proje
 
 ## Common Pitfalls
 
-| Pitfall | How to Avoid It |
-|---|---|
+| Pitfall                                               | How to Avoid It                                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Using a production Azure tenant/subscription for labs | Use a dedicated dev/sandbox subscription; isolate all lab resources in one resource group |
-| Hardcoding API keys in source code | Keys go in Key Vault or environment variables from the start, even in labs |
-| Skipping the synthetic schema setup | All labs depend on it; spend the time in Week 1 |
-| Conflating POC patterns with production requirements | Each module flags POC simplifications explicitly — read them |
-| Assuming the LLM knows district data | It doesn't; the metadata catalog and retrieved context are what make answers accurate |
-| Treating all Azure AI services as equally relevant | Follow the 80/20 stack; resist the urge to evaluate every available service |
- 
+| Hardcoding API keys in source code                    | Keys go in Key Vault or environment variables from the start, even in labs                |
+| Skipping the synthetic schema setup                   | All labs depend on it; spend the time in Week 1                                           |
+| Conflating POC patterns with production requirements  | Each module flags POC simplifications explicitly — read them                             |
+| Assuming the LLM knows district data                  | It doesn't; the metadata catalog and retrieved context are what make answers accurate     |
+| Treating all Azure AI services as equally relevant    | Follow the 80/20 stack; resist the urge to evaluate every available service               |
+
 ## Security and Privacy Considerations
 
 At this orientation stage, the key security principles to internalize are:
@@ -427,13 +379,9 @@ At this orientation stage, the key security principles to internalize are:
 Take 10–15 minutes to write brief answers to these questions before moving to Module 02:
 
 1. Which district analytics questions do you hear most often from teachers, school administrators, and district administrators? List five. Which of those would be most valuable to answer through an AI assistant?
-
 2. What are the biggest data access risks you can imagine if an AI assistant had unrestricted access to the district SQL Server? Be specific about the types of questions or manipulations that could go wrong.
-
 3. The course architecture keeps student data in SQL Server on-premises and only sends query results (in aggregate or appropriately scoped) to Azure OpenAI. What governance questions would your district's leadership or legal team most likely ask about this arrangement?
-
 4. Think about the three user roles — teacher, school administrator, district administrator. For each role, what is one analytics question they ask regularly, and what is one type of data they should not be able to access through the AI assistant?
-
 5. What would "success" look like for a proof of concept at your district? What would you need to demonstrate to get approval for a pilot?
 
 ## Assessment Task
@@ -454,38 +402,37 @@ The following references are current as of mid-2026. Azure AI evolves rapidly �
 
 ### Primary References (Microsoft Official)
 
-| Resource | URL |
-|---|---|
-| Azure OpenAI Service overview | https://learn.microsoft.com/en-us/azure/ai-services/openai/overview |
-| Azure OpenAI models and capabilities | https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models |
-| Azure AI Search overview | https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search |
-| Azure AI Foundry overview | https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-ai-foundry |
-| Azure AI Content Safety overview | https://learn.microsoft.com/en-us/azure/ai-services/content-safety/overview |
-| Microsoft Entra ID overview | https://learn.microsoft.com/en-us/entra/fundamentals/whatis |
-| Azure Key Vault overview | https://learn.microsoft.com/en-us/azure/key-vault/general/overview |
-| Azure Managed Identities | https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview |
-| Azure OpenAI .NET SDK (Azure.AI.OpenAI) | https://learn.microsoft.com/en-us/dotnet/api/overview/azure/ai.openai-readme |
-| Azure SDK for .NET — all packages | https://azure.github.io/azure-sdk-for-net/ |
-| RAG pattern overview (Microsoft) | https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-solution-design-and-evaluation-guide |
-| Responsible AI principles (Microsoft) | https://learn.microsoft.com/en-us/azure/machine-learning/concept-responsible-ai |
-| Azure OpenAI data privacy and security | https://learn.microsoft.com/en-us/legal/cognitive-services/openai/data-privacy |
+| Resource                                | URL                                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Azure OpenAI Service overview           | https://learn.microsoft.com/en-us/azure/ai-services/openai/overview                                           |
+| Azure OpenAI models and capabilities    | https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models                                    |
+| Azure AI Search overview                | https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search                                    |
+| Azure AI Foundry overview               | https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-ai-foundry                                         |
+| Azure AI Content Safety overview        | https://learn.microsoft.com/en-us/azure/ai-services/content-safety/overview                                   |
+| Microsoft Entra ID overview             | https://learn.microsoft.com/en-us/entra/fundamentals/whatis                                                   |
+| Azure Key Vault overview                | https://learn.microsoft.com/en-us/azure/key-vault/general/overview                                            |
+| Azure Managed Identities                | https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview                  |
+| Azure OpenAI .NET SDK (Azure.AI.OpenAI) | https://learn.microsoft.com/en-us/dotnet/api/overview/azure/ai.openai-readme                                  |
+| Azure SDK for .NET — all packages      | https://azure.github.io/azure-sdk-for-net/                                                                    |
+| RAG pattern overview (Microsoft)        | https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-solution-design-and-evaluation-guide |
+| Responsible AI principles (Microsoft)   | https://learn.microsoft.com/en-us/azure/machine-learning/concept-responsible-ai                               |
+| Azure OpenAI data privacy and security  | https://learn.microsoft.com/en-us/legal/cognitive-services/openai/data-privacy                                |
 
 ### FERPA Reference
 
-| Resource | URL |
-|---|---|
-| FERPA overview (U.S. Dept of Education) | https://studentprivacy.ed.gov/ferpa |
-| PTAC — Student Privacy and Technology | https://studentprivacy.ed.gov/resources |
+| Resource                                | URL                                     |
+| --------------------------------------- | --------------------------------------- |
+| FERPA overview (U.S. Dept of Education) | https://studentprivacy.ed.gov/ferpa     |
+| PTAC — Student Privacy and Technology  | https://studentprivacy.ed.gov/resources |
 
 ### Supplemental (Verify Currency Before Use)
 
-| Resource | Note |
-|---|---|
-| Azure AI Search — vector search concepts | Verify latest index schema and embedding integration approach in Microsoft Docs |
-| Azure OpenAI pricing | Verify current token pricing at https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/ |
-| .NET 8 Minimal API documentation | https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis |
+| Resource                                  | Note                                                                                                                 |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Azure AI Search — vector search concepts | Verify latest index schema and embedding integration approach in Microsoft Docs                                      |
+| Azure OpenAI pricing                      | Verify current token pricing at https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/ |
+| .NET 8 Minimal API documentation          | https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis                                              |
 
 > **Implementation note:** Azure AI service names, SDK namespaces, and portal workflows change. When any guidance in this course conflicts with current Microsoft documentation, the Microsoft documentation takes precedence. Always verify SDK package versions, API endpoint paths, and authentication patterns against the official docs at implementation time.
-
 
 *Next: Module 02 — Azure AI Services for District Analytics (`week-01/module-02-azure-ai-landscape.md`)*

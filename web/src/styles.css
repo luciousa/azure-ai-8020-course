@@ -3,7 +3,7 @@
 :root {
   --font-display: 'Cinzel', serif;
   --font-body: 'Literata', Georgia, serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-mono: 'Consolas', 'Cascadia Mono', 'JetBrains Mono', 'SFMono-Regular', 'Courier New', monospace;
   --reader-font-size: 1.03rem;
   --reader-line-height: 1.65;
 
@@ -103,6 +103,13 @@ body {
   color: var(--text-primary);
   background: var(--app-bg);
   font-family: var(--font-body);
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono);
 }
 
 .shell {
@@ -409,6 +416,16 @@ html[data-theme='dark-academia'] .markdown-body pre {
   border-collapse: collapse;
   display: block;
   overflow-x: auto;
+}
+
+.markdown-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.75rem 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
 }
 
 .markdown-body th,
