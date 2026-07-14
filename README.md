@@ -78,6 +78,16 @@ Follow `week-01/lab-01a-environment-setup.md` to create and populate the synthet
 
 Open `week-01/module-01-orientation-8020-roadmap.md` and work through the modules in order.
 
+### 5. Optional docs web app (sidebar navigation)
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Then open the local Vite URL (typically `http://localhost:5173`).
+
 ---
 
 ## Course Content
